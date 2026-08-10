@@ -1,6 +1,7 @@
 package session
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -28,8 +29,12 @@ func (s *Session) parseEntityMetadata(e world.Entity) protocol.EntityMetadata {
 	m[protocol.EntityDataKeyEffectAmbience] = byte(0)
 	m[protocol.EntityDataKeyColorIndex] = byte(0)
 
-	m.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagHasGravity)
-	m.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagClimb)
+	if g, ok := e.(gravity); !ok || g.HasGravity() {
+		setEntityFlag(m, protocol.EntityDataFlagHasGravity)
+	}
+	if c, ok := e.(climber); !ok || c.Climb() {
+		setEntityFlag(m, protocol.EntityDataFlagClimb)
+	}
 	if g, ok := e.H().Type().(glint); ok && g.Glint() {
 		m.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagEnchanted)
 	}
@@ -54,7 +59,7 @@ func (s *Session) addSpecificMetadata(e any, m protocol.EntityMetadata) {
 		m.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagSwimming)
 	}
 	if cr, ok := e.(crawler); ok && cr.Crawling() {
-		m.SetFlag(protocol.EntityDataKeyFlagsTwo, protocol.EntityDataFlagCrawling&63)
+		setEntityFlag(m, protocol.EntityDataFlagCrawling)
 	}
 	if gl, ok := e.(glider); ok && gl.Gliding() {
 		m.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagGliding)
@@ -186,6 +191,60 @@ func (s *Session) addSpecificMetadata(e any, m protocol.EntityMetadata) {
 	if mv, ok := e.(markVariable); ok {
 		m[protocol.EntityDataKeyMarkVariant] = mv.MarkVariant()
 	}
+	if a, ok := e.(angry); ok && a.Angry() {
+		setEntityFlag(m, protocol.EntityDataFlagAngry)
+	}
+	if si, ok := e.(sitter); ok && si.Sitting() {
+		setEntityFlag(m, protocol.EntityDataFlagSitting)
+	}
+	if ta, ok := e.(tamed); ok && ta.Tamed() {
+		setEntityFlag(m, protocol.EntityDataFlagTamed)
+	}
+	if sa, ok := e.(saddled); ok && sa.Saddled() {
+		setEntityFlag(m, protocol.EntityDataFlagSaddled)
+	}
+	if ch, ok := e.(charged); ok && ch.Charged() {
+		setEntityFlag(m, protocol.EntityDataFlagCharged)
+	}
+	if st, ok := e.(stander); ok && st.Standing() {
+		setEntityFlag(m, protocol.EntityDataFlagStanding)
+	}
+	if il, ok := e.(lover); ok && il.InLove() {
+		setEntityFlag(m, protocol.EntityDataFlagInLove)
+	}
+	if sh, ok := e.(sheared); ok && sh.Sheared() {
+		setEntityFlag(m, protocol.EntityDataFlagSheared)
+	}
+	if ce, ok := e.(chested); ok && ce.Chested() {
+		setEntityFlag(m, protocol.EntityDataFlagChested)
+	}
+	if su, ok := e.(stunned); ok && su.Stunned() {
+		setEntityFlag(m, protocol.EntityDataFlagStunned)
+	}
+	if ro, ok := e.(roarer); ok && ro.Roaring() {
+		setEntityFlag(m, protocol.EntityDataFlagRoaring)
+	}
+	if cb, ok := e.(celebrator); ok && cb.Celebrating() {
+		setEntityFlag(m, protocol.EntityDataFlagCelebrating)
+	}
+}
+
+// entityFlagWordSize is the number of flags held by each of the two words that entity flags are stored in.
+const entityFlagWordSize = 64
+
+// setEntityFlag sets the entity flag with the index passed. Flags are stored across two words, and the index of a flag
+// in the second of them is relative to the first, so it has to be brought back into range before it is set.
+func setEntityFlag(m protocol.EntityMetadata, index uint8) {
+	if index >= entityFlagWordSize*2 {
+		// Only two words of flags exist. protocol.EntityMetadata.SetFlag shifts an int64 by the index, which Go
+		// evaluates to 0 for a shift of 64 or more, so a flag beyond the second word would silently set nothing.
+		panic(fmt.Sprintf("entity flag %v is out of range: only %v flags can be represented", index, entityFlagWordSize*2))
+	}
+	if index >= entityFlagWordSize {
+		m.SetFlag(protocol.EntityDataKeyFlagsTwo, index-entityFlagWordSize)
+		return
+	}
+	m.SetFlag(protocol.EntityDataKeyFlags, index)
 }
 
 // nameTagState returns the public name tag of an entity, whether that name tag is shown at all distances
@@ -220,6 +279,62 @@ func writeNameTagMetadata(m protocol.EntityMetadata, nameTag string, alwaysShow 
 	} else {
 		m.UnsetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 	}
+}
+
+type gravity interface {
+	HasGravity() bool
+}
+
+type climber interface {
+	Climb() bool
+}
+
+type angry interface {
+	Angry() bool
+}
+
+type sitter interface {
+	Sitting() bool
+}
+
+type tamed interface {
+	Tamed() bool
+}
+
+type saddled interface {
+	Saddled() bool
+}
+
+type charged interface {
+	Charged() bool
+}
+
+type stander interface {
+	Standing() bool
+}
+
+type lover interface {
+	InLove() bool
+}
+
+type sheared interface {
+	Sheared() bool
+}
+
+type chested interface {
+	Chested() bool
+}
+
+type stunned interface {
+	Stunned() bool
+}
+
+type roarer interface {
+	Roaring() bool
+}
+
+type celebrator interface {
+	Celebrating() bool
 }
 
 type sneaker interface {
