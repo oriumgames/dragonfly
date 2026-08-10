@@ -13,6 +13,9 @@ import (
 // ticker implements World ticking methods.
 type ticker struct {
 	interval time.Duration
+	// initial is true for the single tick that Config.New performs while it builds the World. The World is not
+	// returned to the caller yet at that point, so the tick callback of the Config is not called for it.
+	initial bool
 }
 
 // tickLoop starts ticking the World 20 times every second, updating all
@@ -95,6 +98,10 @@ func (t ticker) tick(tx *Tx) {
 	}
 	if thunder {
 		w.tickLightning(tx)
+	}
+
+	if f := w.conf.Tick; f != nil && !t.initial {
+		f(tx, tick)
 	}
 
 	t.tickEntities(tx, tick)

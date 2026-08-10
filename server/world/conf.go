@@ -88,6 +88,14 @@ type Config struct {
 	// AdvanceTick are not safe to call concurrently, including from delayed
 	// item or death callbacks.
 	Synchronous bool
+	// Tick, if not nil, is called once for every tick that the World performs,
+	// from inside the transaction that runs the tick and before the entities
+	// and blocks in the World are ticked. The tick passed is the tick of the
+	// World that is being performed.
+	// A World only ticks while it has viewers, unless it is Synchronous, in
+	// which case it ticks once for every World.AdvanceTick call. Tick is not
+	// called for ticks that the World does not perform.
+	Tick func(tx *Tx, current int64)
 }
 
 // New creates a new World using the Config conf. The World returned will start
@@ -181,6 +189,6 @@ func (conf Config) New() *World {
 		}
 	}
 
-	<-w.exec(t.tick)
+	<-w.exec(ticker{initial: true}.tick)
 	return w
 }
