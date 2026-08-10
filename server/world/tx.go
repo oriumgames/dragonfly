@@ -256,6 +256,12 @@ func (tx *Tx) PlaySound(pos mgl64.Vec3, s Sound) {
 // the chunk that the EntityHandle is in is not yet loaded, it will first be
 // loaded. AddEntity panics if the EntityHandle is already in a world.
 // AddEntity returns the Entity created by the EntityHandle.
+//
+// An Entity added while entities are being ticked may or may not be ticked in
+// that same tick: entities are ticked by ranging a map, and the Go
+// specification leaves it undefined whether an entry added during a range is
+// produced by it. Code that adds entities from a Tick method must not depend
+// on either outcome.
 func (tx *Tx) AddEntity(e *EntityHandle) Entity {
 	return tx.World().addEntity(tx, e)
 }
