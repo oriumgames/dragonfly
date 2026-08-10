@@ -79,9 +79,7 @@ func (i *ItemBehaviour) Item() item.Stack {
 // or if it should merge with nearby item entities.
 func (i *ItemBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 	pos := cube.PosFromVec3(e.Position())
-	blockPos := pos.Side(cube.FaceDown)
-
-	bl, ok := tx.Block(blockPos).(block.Hopper)
+	blockPos, bl, ok := hopperUnder(e, tx)
 	if ok && !bl.Powered && bl.CollectCooldown <= 0 {
 		addedCount, err := bl.Inventory(tx, blockPos).AddItem(i.i)
 		if err != nil {
@@ -100,6 +98,26 @@ func (i *ItemBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 		return nil
 	}
 	return i.passive.Tick(e, tx)
+}
+
+// hopperUnder returns the Hopper an item entity rests on, along with its position. An item entity is narrower than a
+// block, so it may come to rest on the edge of a hopper with its centre over the block beside it, and looking only
+// below its centre would miss the hopper it is lying on.
+func hopperUnder(e *Ent, tx *world.Tx) (cube.Pos, block.Hopper, bool) {
+	box := e.H().Type().BBox(e).Translate(e.Position())
+	y := int(math.Floor(box.Min()[1] - 0.0001))
+	horizontal := box.Grow(-0.0001)
+	low, high := cube.PosFromVec3(horizontal.Min()), cube.PosFromVec3(horizontal.Max())
+
+	for x := low[0]; x <= high[0]; x++ {
+		for z := low[2]; z <= high[2]; z++ {
+			pos := cube.Pos{x, y, z}
+			if h, ok := tx.Block(pos).(block.Hopper); ok {
+				return pos, h, true
+			}
+		}
+	}
+	return cube.Pos{}, block.Hopper{}, false
 }
 
 // Explode reacts to explosions. The item entity is destroyed, unless the item
