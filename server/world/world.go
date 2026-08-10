@@ -719,6 +719,22 @@ func (tx *Tx) light(pos cube.Pos) uint8 {
 	return c.Light(uint8(pos[0]), int16(pos[1]), uint8(pos[2]))
 }
 
+// blockLight returns the level of light emitted by blocks at the position
+// passed, such as torches. The light value, similarly to light, is a value in
+// the range 0-15, where 0 means no light is present.
+func (tx *Tx) blockLight(pos cube.Pos) uint8 {
+	w := tx.World()
+	if pos[1] < w.ra[0] || pos[1] > w.ra[1] {
+		// Outside of the world, where no block can emit light.
+		return 0
+	}
+	c, ok := w.loadedChunk(chunkPosFromBlockPos(pos))
+	if !ok {
+		return 0
+	}
+	return c.BlockLight(uint8(pos[0]), int16(pos[1]), uint8(pos[2]))
+}
+
 // skyLight returns the skylight level at the position passed. This light level
 // is not influenced by blocks that emit light, such as torches. The light
 // value, similarly to light, is a value in the range 0-15, where 0 means no

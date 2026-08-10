@@ -179,6 +179,16 @@ func (tx *Tx) SkyLight(pos cube.Pos) uint8 {
 	return tx.skyLight(pos)
 }
 
+// BlockLight returns the level of light emitted by blocks at the position
+// passed, such as torches. Unlike Light, it is not influenced by the skylight
+// reaching the position, which is what spawning rules are based on. The light
+// value is a value in the range 0-15, where 0 means no light is present.
+// BlockLight does not load chunks: 0 is returned for positions in chunks that
+// are not currently loaded.
+func (tx *Tx) BlockLight(pos cube.Pos) uint8 {
+	return tx.blockLight(pos)
+}
+
 // SetBiome sets the Biome at the position passed. If a chunk is not yet loaded
 // at that position, the chunk is first loaded or generated if it could not be
 // found in the world save.
