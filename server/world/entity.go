@@ -386,7 +386,10 @@ func (e *EntityHandle) setAndUnlockWorldAt(w *World, pos mgl64.Vec3) {
 	}
 	e.data.Pos = pos
 	e.w = w
-	e.cond.Broadcast()
+	// Waiters that parked while e was worldless hold the signals of no world at
+	// all. They only learn that e joined one through the world-changed channel,
+	// so it must be closed here like it is on every other change of e.w.
+	e.notifyWorldChangedLocked()
 }
 
 // decodeNBT decodes the position, velocity, rotation, age, on-fire duration and
