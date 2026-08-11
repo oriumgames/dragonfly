@@ -44,13 +44,6 @@ func testHopperDrop(t *testing.T, off mgl64.Vec3) (restY float64, collected int)
 
 // TestHopperCollectsItemInBasin verifies that a hopper collects an item lying inside it, which is the case that
 // already worked and must keep working.
-func testWorld(t *testing.T) *world.World {
-	t.Helper()
-	w := world.Config{Synchronous: true, Entities: DefaultRegistry}.New()
-	t.Cleanup(func() { _ = w.Close() })
-	return w
-}
-
 func TestHopperCollectsItemInBasin(t *testing.T) {
 	// Control: dropped over the hopper's rim, so it rests on top of the hopper
 	// block at y=2.
