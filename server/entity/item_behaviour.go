@@ -100,12 +100,21 @@ func (i *ItemBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 	return i.passive.Tick(e, tx)
 }
 
+// hopperBasinHeight is the height of the floor of a hopper's basin, matching the model a Hopper returns. Items are
+// collected from this height upwards.
+const hopperBasinHeight = 0.625
+
 // hopperUnder returns the Hopper an item entity rests on, along with its position. An item entity is narrower than a
 // block, so it may come to rest on the edge of a hopper with its centre over the block beside it, and looking only
 // below its centre would miss the hopper it is lying on.
 func hopperUnder(e *Ent, tx *world.Tx) (cube.Pos, block.Hopper, bool) {
 	box := e.H().Type().BBox(e).Translate(e.Position())
 	y := int(math.Floor(box.Min()[1] - 0.0001))
+	// A hopper only reaches items down to the floor of its basin. An item lying below that, held up by a block
+	// thinner than the basin beside the hopper, is out of reach even though it is in the same layer.
+	if box.Max()[1] <= float64(y)+hopperBasinHeight {
+		return cube.Pos{}, block.Hopper{}, false
+	}
 	horizontal := box.Grow(-0.0001)
 	low, high := cube.PosFromVec3(horizontal.Min()), cube.PosFromVec3(horizontal.Max())
 
