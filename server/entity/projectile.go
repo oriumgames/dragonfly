@@ -208,9 +208,9 @@ func (lt *ProjectileBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 		}
 		if lt.conf.SurviveBlockCollision {
 			lt.hitBlockSurviving(e, r, m, tx)
-			return m
+		} else {
+			lt.close = true
 		}
-		lt.close = true
 	}
 	if lt.conf.Hit != nil {
 		lt.conf.Hit(e, tx, result)
