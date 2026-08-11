@@ -1207,8 +1207,6 @@ func (w *World) saveChunk(_ *Tx, pos ChunkPos, c *Column) {
 		w.conf.Log.Error("save chunk: "+err.Error(), "X", pos[0], "Z", pos[1])
 		return
 	}
-	// The Column is now in sync with the provider. Only another mutation should
-	// cause it to be written again.
 	c.modified = false
 }
 
