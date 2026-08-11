@@ -154,6 +154,77 @@ func TestSynchronousAdvanceTickTicksViewerlessBlockEntities(t *testing.T) {
 	}
 }
 
+// TestSaveChunkModifiedFlag verifies that a Column is written to the Provider
+// only while it holds changes the Provider has not seen yet, and that a Column
+// holding block entities is written on every save regardless, because block
+// entities are mutated through the pointers the Column holds and so cannot mark
+// it as modified themselves.
+func TestSaveChunkModifiedFlag(t *testing.T) {
+	pos := cube.Pos{3, 4, 5}
+	tests := []struct {
+		name  string
+		setUp func(tx *Tx)
+		saves int
+		want  int
+	}{
+		{
+			name:  "untouched chunk",
+			setUp: func(tx *Tx) { tx.chunk(chunkPosFromBlockPos(pos)) },
+			saves: 3,
+			want:  0,
+		},
+		{
+			name: "chunk modified once",
+			setUp: func(tx *Tx) {
+				tx.AddEntity(EntitySpawnOpts{Position: pos.Vec3Middle()}.New(testEntityType{}, testEntityConfig{}))
+			},
+			saves: 3,
+			want:  1,
+		},
+		{
+			name: "chunk holding a block entity",
+			setUp: func(tx *Tx) {
+				tx.chunk(chunkPosFromBlockPos(pos)).BlockEntities[pos] = &testTickerBlock{}
+			},
+			saves: 3,
+			want:  3,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := &countingProvider{}
+			w := Config{Synchronous: true, Provider: p}.New()
+			defer w.Close()
+
+			<-w.exec(test.setUp)
+			for range test.saves {
+				w.Save()
+			}
+			if got := int(p.stores.Load()); got != test.want {
+				t.Fatalf("StoreColumn calls after %v saves: got %v, want %v", test.saves, got, test.want)
+			}
+		})
+	}
+}
+
+// TestSaveChunkRewritesAfterFurtherChanges verifies that clearing the modified
+// flag does not stop later changes to the same Column from being written.
+func TestSaveChunkRewritesAfterFurtherChanges(t *testing.T) {
+	p := &countingProvider{}
+	w := Config{Synchronous: true, Provider: p}.New()
+	defer w.Close()
+
+	for range 3 {
+		h := EntitySpawnOpts{Position: mgl64.Vec3{3, 4, 5}}.New(testEntityType{}, testEntityConfig{})
+		<-w.exec(func(tx *Tx) { tx.AddEntity(h) })
+		w.Save()
+		w.Save()
+	}
+	if got, want := int(p.stores.Load()), 3; got != want {
+		t.Fatalf("StoreColumn calls: got %v, want %v", got, want)
+	}
+}
+
 type testEntityConfig struct{}
 
 func (testEntityConfig) Apply(*EntityData) {}
@@ -633,4 +704,15 @@ func TestCloseChunkRemovesEntities(t *testing.T) {
 	if got := len(w.chunks); got != 0 {
 		t.Errorf("chunks = %v after unloading, want 0", got)
 	}
+}
+
+// countingProvider is a NopProvider that records how often a Column was written.
+type countingProvider struct {
+	NopProvider
+	stores atomic.Int64
+}
+
+func (p *countingProvider) StoreColumn(ChunkPos, Dimension, *chunk.Column) error {
+	p.stores.Add(1)
+	return nil
 }
