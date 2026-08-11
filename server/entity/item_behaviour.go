@@ -79,7 +79,7 @@ func (i *ItemBehaviour) Item() item.Stack {
 // or if it should merge with nearby item entities.
 func (i *ItemBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 	pos := cube.PosFromVec3(e.Position())
-	blockPos, bl, ok := hopperUnder(e, tx)
+	blockPos, bl, ok := hopperInReach(e, tx)
 	if ok && !bl.Powered && bl.CollectCooldown <= 0 {
 		addedCount, err := bl.Inventory(tx, blockPos).AddItem(i.i)
 		if err != nil {
@@ -100,29 +100,35 @@ func (i *ItemBehaviour) Tick(e *Ent, tx *world.Tx) *Movement {
 	return i.passive.Tick(e, tx)
 }
 
-// hopperBasinHeight is the height of the floor of a hopper's basin, matching the model a Hopper returns. Items are
-// collected from this height upwards.
-const hopperBasinHeight = 0.625
+const (
+	// hopperReachMin is the height above a hopper's own position at which it starts collecting items. It is the floor
+	// of its basin, matching the model a Hopper returns.
+	hopperReachMin = 0.625
+	// hopperReachMax is the height above a hopper's own position at which it stops collecting items. It reaches a
+	// block further than it is tall, so an item lying on a slab or a carpet placed on the hopper is still within it.
+	hopperReachMax = 2
+)
 
-// hopperUnder returns the Hopper an item entity rests on, along with its position. An item entity is narrower than a
-// block, so it may come to rest on the edge of a hopper with its centre over the block beside it, and looking only
-// below its centre would miss the hopper it is lying on.
-func hopperUnder(e *Ent, tx *world.Tx) (cube.Pos, block.Hopper, bool) {
-	box := e.H().Type().BBox(e).Translate(e.Position())
-	y := int(math.Floor(box.Min()[1] - 0.0001))
-	// A hopper only reaches items down to the floor of its basin. An item lying below that, held up by a block
-	// thinner than the basin beside the hopper, is out of reach even though it is in the same layer.
-	if box.Max()[1] <= float64(y)+hopperBasinHeight {
-		return cube.Pos{}, block.Hopper{}, false
-	}
-	horizontal := box.Grow(-0.0001)
-	low, high := cube.PosFromVec3(horizontal.Min()), cube.PosFromVec3(horizontal.Max())
+// hopperInReach returns a Hopper that can collect the item entity passed, along with its position. A hopper collects
+// every item whose bounding box overlaps the volume it reaches into, rather than only the item directly on top of it:
+// an item entity is narrower than a block and so may rest on the edge of a hopper with its centre over the block
+// beside it, and the volume extends past the hopper itself, so an item is also collected through a block thinner than
+// a full one placed on the hopper.
+func hopperInReach(e *Ent, tx *world.Tx) (cube.Pos, block.Hopper, bool) {
+	box := e.H().Type().BBox(e).Translate(e.Position()).Grow(-0.0001)
+	low, high := cube.PosFromVec3(box.Min()), cube.PosFromVec3(box.Max())
+	// A hopper at y reaches from y+hopperReachMin to y+hopperReachMax, so it is the hopper positions rather than the
+	// item that are solved for here. The lowest is the one whose reach ends just above the bottom of the item.
+	lowest := int(math.Ceil(box.Min()[1] - hopperReachMax))
+	highest := int(math.Floor(box.Max()[1] - hopperReachMin))
 
-	for x := low[0]; x <= high[0]; x++ {
-		for z := low[2]; z <= high[2]; z++ {
-			pos := cube.Pos{x, y, z}
-			if h, ok := tx.Block(pos).(block.Hopper); ok {
-				return pos, h, true
+	for y := lowest; y <= highest; y++ {
+		for x := low[0]; x <= high[0]; x++ {
+			for z := low[2]; z <= high[2]; z++ {
+				pos := cube.Pos{x, y, z}
+				if h, ok := tx.Block(pos).(block.Hopper); ok {
+					return pos, h, true
+				}
 			}
 		}
 	}
