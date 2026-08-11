@@ -3324,8 +3324,11 @@ func (p *Player) Close() error {
 // disconnecting of players.
 func (p *Player) close(msg string) {
 	// If the player is being disconnected while they are dead, we respawn the player
-	// so that the player logic works correctly the next time they join.
-	if p.Dead() && p.session() != nil {
+	// so that the player logic works correctly the next time they join. A
+	// sessionless player has nothing to rejoin, so it falls through to quit and
+	// is removed from the world instead. Player.session never returns nil: a
+	// player without a session gets session.Nop.
+	if p.Dead() && p.session() != session.Nop {
 		p.respawn(func(np *Player) {
 			np.quit(msg)
 		})
