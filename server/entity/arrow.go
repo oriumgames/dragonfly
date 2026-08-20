@@ -34,6 +34,7 @@ func NewTippedArrowWithDamage(opts world.EntitySpawnOpts, damage float64, owner 
 	conf.Damage = damage
 	conf.Potion = tip
 	conf.Owner = owner.H()
+	conf.PickupItem = item.NewStack(item.Arrow{Tip: tip}, 1)
 	return opts.New(ArrowType, conf)
 }
 
