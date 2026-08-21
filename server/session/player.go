@@ -1331,6 +1331,9 @@ func debugShapeToProtocol(shape debug.Shape, dim world.Dimension, attachedEntity
 
 // gameTypeFromMode returns the game type ID from the game mode passed.
 func gameTypeFromMode(mode world.GameMode) int32 {
+	if projected, ok := mode.(world.ClientGameMode); ok {
+		mode = projected.ClientGameMode()
+	}
 	if mode == world.GameModeSpectator {
 		return packet.GameTypeSpectator
 	}

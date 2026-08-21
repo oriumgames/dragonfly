@@ -25,6 +25,13 @@ type GameMode interface {
 	InstantPortalTravel() bool
 }
 
+// ClientGameMode may be implemented by a GameMode to project a different game
+// mode to the client. Server-side abilities and interaction rules continue to
+// use the original GameMode.
+type ClientGameMode interface {
+	ClientGameMode() GameMode
+}
+
 var (
 	// GameModeSurvival is the survival game mode: Players with this game mode have limited supplies and can break blocks
 	// after taking some time.
